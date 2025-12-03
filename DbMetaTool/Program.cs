@@ -83,33 +83,37 @@ namespace DbMetaTool
         public static void BuildDatabase(string databaseDirectory, string scriptsDirectory)
         {
             // 1) Utwórz pustą bazę danych FB 5.0 w katalogu databaseDirectory.
-            bool isRemotePath = databaseDirectory.StartsWith("/") || databaseDirectory.Contains(":");
+            // Auto-detekcja: "/" na początku = serwer Linux (Docker), inaczej = embedded lokalnie
+            bool isServerPath = databaseDirectory.StartsWith("/");
 
             string dbPath;
-            if (isRemotePath)
+            var csb = new FbConnectionStringBuilder
+            {
+                UserID = "SYSDBA",
+                Password = "masterkey",
+                Charset = "UTF8"
+            };
+
+            if (isServerPath)
             {
                 // Ścieżka na serwerze zdalnym (np. Docker)
                 dbPath = databaseDirectory.EndsWith(".fdb")
                     ? databaseDirectory
                     : databaseDirectory.TrimEnd('/') + "/database.fdb";
+                csb.DataSource = "localhost";
+                csb.Port = 3050;
+                csb.ServerType = FbServerType.Default;
             }
             else
             {
+                // Ścieżka lokalna (embedded)
                 if (!Directory.Exists(databaseDirectory))
                     Directory.CreateDirectory(databaseDirectory);
                 dbPath = Path.Combine(databaseDirectory, "database.fdb");
+                csb.ServerType = FbServerType.Embedded;
             }
 
-            var csb = new FbConnectionStringBuilder
-            {
-                DataSource = "localhost",
-                Port = 3050,
-                Database = dbPath,
-                UserID = "SYSDBA",
-                Password = "masterkey",
-                ServerType = FbServerType.Default,
-                Charset = "UTF8"
-            };
+            csb.Database = dbPath;
 
             FbConnection.CreateDatabase(csb.ConnectionString, pageSize: 16384, forcedWrites: true, overwrite: true);
             Console.WriteLine($"Utworzono bazę danych: {dbPath}");
