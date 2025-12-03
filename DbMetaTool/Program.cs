@@ -219,7 +219,7 @@ namespace DbMetaTool
                         ORDER BY r.RDB$RELATION_NAME", connection))
                     using (var readerTables = cmdTables.ExecuteReader())
                     {
-                        var tables = new System.Collections.Generic.List<string>();
+                        var tables = new List<string>();
                         while (readerTables.Read())
                             tables.Add(readerTables.GetString(0).Trim());
 
@@ -240,7 +240,7 @@ namespace DbMetaTool
                                 cmdCols.Parameters.AddWithValue("@tableName", table);
                                 using (var readerCols = cmdCols.ExecuteReader())
                                 {
-                                    var columns = new System.Collections.Generic.List<string>();
+                                    var columns = new List<string>();
                                     while (readerCols.Read())
                                     {
                                         string colName = readerCols.GetString(0).Trim();
@@ -354,7 +354,7 @@ namespace DbMetaTool
             Console.WriteLine($"Eksport zakończony do katalogu: {outputDirectory}");
         }
 
-        private static string MapFieldType(int fieldType, System.Data.IDataReader reader)
+        private static string MapFieldType(int fieldType, FbDataReader reader)
         {
             int precision = reader.IsDBNull(4) ? 0 : Convert.ToInt32(reader[4]);
             int scale = reader.IsDBNull(5) ? 0 : Convert.ToInt32(reader[5]);
@@ -363,7 +363,7 @@ namespace DbMetaTool
             return MapFieldTypeCore(fieldType, precision, scale, charLength);
         }
 
-        private static string MapFieldTypeForParam(System.Data.IDataReader reader)
+        private static string MapFieldTypeForParam(FbDataReader reader)
         {
             int fieldType = reader.GetInt16(2);
             int precision = reader.IsDBNull(4) ? 0 : Convert.ToInt32(reader[4]);
