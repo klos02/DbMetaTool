@@ -183,7 +183,7 @@ namespace DbMetaTool
                     using (var cmd = new FbCommand(@"
                         SELECT f.RDB$FIELD_NAME, f.RDB$FIELD_TYPE, f.RDB$FIELD_LENGTH,
                                f.RDB$FIELD_PRECISION, f.RDB$FIELD_SCALE, f.RDB$NULL_FLAG,
-                               f.RDB$DEFAULT_SOURCE, f.RDB$VALIDATION_SOURCE
+                               f.RDB$DEFAULT_SOURCE, f.RDB$VALIDATION_SOURCE, f.RDB$CHARACTER_LENGTH
                         FROM RDB$FIELDS f
                         WHERE f.RDB$FIELD_NAME NOT STARTING WITH 'RDB$'
                           AND f.RDB$FIELD_NAME NOT STARTING WITH 'SEC$'
@@ -231,7 +231,7 @@ namespace DbMetaTool
                                 SELECT rf.RDB$FIELD_NAME, rf.RDB$FIELD_SOURCE,
                                        f.RDB$FIELD_TYPE, f.RDB$FIELD_LENGTH,
                                        f.RDB$FIELD_PRECISION, f.RDB$FIELD_SCALE,
-                                       rf.RDB$NULL_FLAG, rf.RDB$DEFAULT_SOURCE
+                                       rf.RDB$NULL_FLAG, rf.RDB$DEFAULT_SOURCE, f.RDB$CHARACTER_LENGTH
                                 FROM RDB$RELATION_FIELDS rf
                                 JOIN RDB$FIELDS f ON rf.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME
                                 WHERE rf.RDB$RELATION_NAME = @tableName
@@ -307,9 +307,9 @@ namespace DbMetaTool
 
         private static string MapFieldType(int fieldType, System.Data.IDataReader reader)
         {
-            int length = reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader[3]);
             int precision = reader.IsDBNull(4) ? 0 : Convert.ToInt32(reader[4]);
             int scale = reader.IsDBNull(5) ? 0 : Convert.ToInt32(reader[5]);
+            int charLength = reader.IsDBNull(8) ? 0 : Convert.ToInt32(reader[8]);
 
             return fieldType switch
             {
@@ -318,11 +318,11 @@ namespace DbMetaTool
                 10 => "FLOAT",
                 12 => "DATE",
                 13 => "TIME",
-                14 => $"CHAR({length})",
+                14 => $"CHAR({charLength})",
                 16 => scale < 0 ? $"NUMERIC({precision}, {-scale})" : "BIGINT",
                 27 => "DOUBLE PRECISION",
                 35 => "TIMESTAMP",
-                37 => $"VARCHAR({length})",
+                37 => $"VARCHAR({charLength})",
                 261 => "BLOB",
                 _ => $"UNKNOWN({fieldType})"
             };
