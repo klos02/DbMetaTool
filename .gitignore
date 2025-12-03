@@ -54,3 +54,5 @@ appsettings.*.json
 # OS generated
 .DS_Store
 Thumbs.db
+
+.claude/
