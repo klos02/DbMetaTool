@@ -1,0 +1,16 @@
+services:
+  firebird:
+    image: firebirdsql/firebird:5
+    container_name: firebird5
+    ports:
+      - "3050:3050"
+    environment:
+      - FIREBIRD_ROOT_PASSWORD=masterkey
+      - FIREBIRD_USER=testuser
+      - FIREBIRD_PASSWORD=testpass
+      - FIREBIRD_DATABASE=testdb.fdb
+    volumes:
+      - firebird_data:/var/lib/firebird/data
+
+volumes:
+  firebird_data:
