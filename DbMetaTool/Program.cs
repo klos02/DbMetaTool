@@ -280,19 +280,68 @@ namespace DbMetaTool
                         ORDER BY p.RDB$PROCEDURE_NAME", connection))
                     using (var readerProcs = cmdProcs.ExecuteReader())
                     {
+                        var procedures = new List<(string Name, string? Source)>();
                         while (readerProcs.Read())
                         {
-                            string procName = readerProcs.GetString(0).Trim();
-                            string? procSource = readerProcs.IsDBNull(1) ? null : readerProcs.GetString(1);
+                            procedures.Add((
+                                readerProcs.GetString(0).Trim(),
+                                readerProcs.IsDBNull(1) ? null : readerProcs.GetString(1)
+                            ));
+                        }
 
+                        foreach (var (procName, procSource) in procedures)
+                        {
                             writer.WriteLine($"-- Procedura: {procName}");
-                            if (!string.IsNullOrEmpty(procSource))
+
+                            // Pobierz parametry wejściowe
+                            var inputParams = new List<string>();
+                            var outputParams = new List<string>();
+
+                            using (var cmdParams = new FbCommand(@"
+                                SELECT pp.RDB$PARAMETER_NAME, pp.RDB$PARAMETER_TYPE,
+                                       f.RDB$FIELD_TYPE, f.RDB$FIELD_LENGTH,
+                                       f.RDB$FIELD_PRECISION, f.RDB$FIELD_SCALE,
+                                       pp.RDB$FIELD_SOURCE, f.RDB$CHARACTER_LENGTH
+                                FROM RDB$PROCEDURE_PARAMETERS pp
+                                JOIN RDB$FIELDS f ON pp.RDB$FIELD_SOURCE = f.RDB$FIELD_NAME
+                                WHERE pp.RDB$PROCEDURE_NAME = @procName
+                                ORDER BY pp.RDB$PARAMETER_TYPE, pp.RDB$PARAMETER_NUMBER", connection))
                             {
-                                writer.WriteLine($"CREATE OR ALTER PROCEDURE {procName}");
-                                writer.WriteLine("AS");
-                                writer.WriteLine(procSource.Trim());
-                                writer.WriteLine("^");
+                                cmdParams.Parameters.AddWithValue("@procName", procName);
+                                using (var readerParams = cmdParams.ExecuteReader())
+                                {
+                                    while (readerParams.Read())
+                                    {
+                                        string paramName = readerParams.GetString(0).Trim();
+                                        int paramType = readerParams.GetInt16(1);
+                                        string fieldSource = readerParams.GetString(6).Trim();
+
+                                        string paramTypeName;
+                                        if (!fieldSource.StartsWith("RDB$"))
+                                            paramTypeName = fieldSource;
+                                        else
+                                            paramTypeName = MapFieldTypeForParam(readerParams);
+
+                                        if (paramType == 0)
+                                            inputParams.Add($"{paramName} {paramTypeName}");
+                                        else
+                                            outputParams.Add($"{paramName} {paramTypeName}");
+                                    }
+                                }
                             }
+
+                            writer.Write($"CREATE OR ALTER PROCEDURE {procName}");
+                            if (inputParams.Count > 0)
+                                writer.Write($" ({string.Join(", ", inputParams)})");
+                            writer.WriteLine();
+
+                            if (outputParams.Count > 0)
+                                writer.WriteLine($"RETURNS ({string.Join(", ", outputParams)})");
+
+                            writer.WriteLine("AS");
+                            if (!string.IsNullOrEmpty(procSource))
+                                writer.WriteLine(procSource.Trim());
+                            writer.WriteLine("^");
                             writer.WriteLine();
                         }
                     }
@@ -311,6 +360,21 @@ namespace DbMetaTool
             int scale = reader.IsDBNull(5) ? 0 : Convert.ToInt32(reader[5]);
             int charLength = reader.IsDBNull(8) ? 0 : Convert.ToInt32(reader[8]);
 
+            return MapFieldTypeCore(fieldType, precision, scale, charLength);
+        }
+
+        private static string MapFieldTypeForParam(System.Data.IDataReader reader)
+        {
+            int fieldType = reader.GetInt16(2);
+            int precision = reader.IsDBNull(4) ? 0 : Convert.ToInt32(reader[4]);
+            int scale = reader.IsDBNull(5) ? 0 : Convert.ToInt32(reader[5]);
+            int charLength = reader.IsDBNull(7) ? 0 : Convert.ToInt32(reader[7]);
+
+            return MapFieldTypeCore(fieldType, precision, scale, charLength);
+        }
+
+        private static string MapFieldTypeCore(int fieldType, int precision, int scale, int charLength)
+        {
             return fieldType switch
             {
                 7 => scale < 0 ? $"NUMERIC({precision}, {-scale})" : "SMALLINT",
