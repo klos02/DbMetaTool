@@ -21,7 +21,7 @@ Narzędzie wspiera zarówno wbudowany (embedded) silnik Firebird, jak i serwer F
 
 ```bash
 # Klonowanie repozytorium
-git clone https://github.com/your-repo/DbMetaTool.git
+git clone https://github.com/klos02/DbMetaTool.git
 cd DbMetaTool
 
 # Przywrócenie zależności i budowa
